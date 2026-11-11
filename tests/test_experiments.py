@@ -261,18 +261,19 @@ def test_select_representative_items_structure():
         assert 1 <= rank <= V
 
 
-def test_exp_a_output_schema_and_non_negative_errors():
-    """Run a micro-trial run of exp_a (T=5) and assert that:
+def test_exp_a_output_schema_and_non_negative_errors(tmp_path):
+    """Run a micro-trial run of exp_a (T=5) into a temporary test CSV and assert that:
       - Output CSV has the exact required columns
       - fail_prob is within [0, 1]
       - mean_abs_error and max_abs_error are strictly non-negative
       - ci_low <= fail_prob <= ci_high
       - words for real dataset are strings; for zipf are item_<id>
+      - Final exp_a_results.csv is NEVER overwritten by this test
     """
     from experiments import run_exp_a
-    from pathlib import Path
 
-    df = run_exp_a(T=5)
+    test_csv = tmp_path / "test_exp_a_results.csv"
+    df = run_exp_a(T=5, out_csv=test_csv)
 
     expected_cols = [
         "dataset", "eps", "w", "d", "delta_theory", "class",
@@ -380,3 +381,55 @@ def test_exp_b_output_schemas():
         "item_count", "mean_pass_rate", "dataset", "s"
     ]
     assert list(df_c.columns) == expected_c_cols
+
+
+def test_ablation_output_schema_and_metrics(tmp_path):
+    """Verify Stage 6 ablation study specifications:
+      - CSV has exact 18 required columns
+      - Exactly 560 rows (2 datasets * 2 depths * (40 + 60 + 40 items))
+      - delta_theory is 1/e for d=1 and 0.05 for d=3
+      - mean_overestimation_norm_N == mean_abs_error / N
+      - Non-negative errors and valid CI bounds
+      - Final ablation_d1_results.csv is NEVER overwritten by this test
+    """
+    from experiments import run_ablation, PROCESSED_DIR
+    import pandas as pd
+
+    # Run micro-ablation with T=10 into a temporary test CSV
+    test_csv = tmp_path / "test_ablation_results.csv"
+    df = run_ablation(T=10, out_csv=test_csv)
+
+    expected_cols = [
+        "dataset", "eps", "w", "d", "delta_theory", "class",
+        "rank", "item_id", "word", "true_count", "failures_k",
+        "trials_T", "fail_prob", "ci_low", "ci_high",
+        "mean_abs_error", "max_abs_error", "mean_overestimation_norm_N"
+    ]
+    assert list(df.columns) == expected_cols
+    assert len(df) == 560
+
+    # Theoretical delta checks
+    d1_rows = df[df["d"] == 1]
+    d3_rows = df[df["d"] == 3]
+    assert np.allclose(d1_rows["delta_theory"], 1.0 / np.e)
+    assert np.allclose(d3_rows["delta_theory"], 0.05)
+
+    # Check non-negative errors and valid CI bounds
+    assert np.all(df["fail_prob"] >= 0.0)
+    assert np.all(df["fail_prob"] <= 1.0)
+    assert np.all(df["ci_low"] <= df["fail_prob"] + 1e-9)
+    assert np.all(df["fail_prob"] <= df["ci_high"] + 1e-9)
+    assert np.all(df["mean_abs_error"] >= 0.0)
+    assert np.all(df["max_abs_error"] >= 0.0)
+    assert np.all(df["mean_overestimation_norm_N"] >= 0.0)
+
+    # Check mean_overestimation_norm_N == mean_abs_error / N
+    streams = np.load(PROCESSED_DIR / "streams.npz")
+    real_N = streams["real"].sum()
+    zipf_N = streams["zipf_1.0"].sum()
+
+    real_df = df[df["dataset"] == "real"]
+    assert np.allclose(real_df["mean_overestimation_norm_N"], real_df["mean_abs_error"] / float(real_N))
+
+    zipf_df = df[df["dataset"] == "zipf_1.0"]
+    assert np.allclose(zipf_df["mean_overestimation_norm_N"], zipf_df["mean_abs_error"] / float(zipf_N))

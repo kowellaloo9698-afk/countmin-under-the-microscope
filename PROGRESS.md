@@ -72,8 +72,14 @@
 | **Completed** | Stage 2 (3/3 tests passed locally). |
 | **Completed** | Stage 3 (4/4 tests passed locally, 2026-11-12; 5th deterministic threshold test added and all assertions verified). Functions implemented: empirical_failure_probability, clopper_pearson_ci, requency_threshold_for_relative_error. Batching at BATCH_SIZE=250 per plan. Test file: 	ests/test_experiments.py. |
 | **Completed** | Stage 4 (Experiment a: final T=5000 run verified locally, output saved to data/processed/exp_a_results.csv). |
-| **Completed** | Stage 5 (Experiment b: development run with T=500 completed, thresholds and curves saved to data/processed/, all 15 project tests passing). Paused for review before final T=5000 run. |
-| **Pending** | Stage 5 final T=5000 run, and Stage 6 (=1$ ablation). |
+| **Completed** | Stage 5 (Experiment b: final T=5000 run verified locally, thresholds and curves saved to data/processed/exp_b_thresholds.csv and exp_b_curves.csv). |
+| **Completed** | Stage 6 (=1$ vs =3$ ablation: final T=5000 run verified locally, output saved to data/processed/ablation_d1_results.csv, exact consistency with Stage 4 verified, all 16 project tests passing). **Session B complete.** |
+| **Pending** | Session C: Stage 7 (Publication-quality figures fig1_failure_prob.png and fig2_rel_error_threshold.png via plots.py, and optional static demo.ipynb). |
+
+### Session B Cleanup Note:
+- Unit tests test_exp_a_output_schema_and_non_negative_errors and test_ablation_output_schema_and_metrics were updated to accept pytest's tmp_path fixture and write to temporary test CSV files via an optional out_csv parameter in 
+un_exp_a and 
+un_ablation. This permanently protects the final T=5000 experiment CSV artifacts from being overwritten when pytest is run.
 
 ---
 

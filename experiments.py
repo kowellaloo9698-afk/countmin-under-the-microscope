@@ -247,15 +247,19 @@ def select_representative_items(
     return items
 
 
-def run_exp_a(T: int = 5000) -> pd.DataFrame:
+def run_exp_a(T: int = 5000, out_csv: Path | str | None = None) -> pd.DataFrame:
     """Execute Experiment (a): Empirical Failure Probability vs. True Frequency.
 
     Evaluates the real Dostoevsky corpus and synthetic Zipf (s=1.0) stream across
     eps in {0.01, 0.003, 0.001} with d=3 (delta_theory=0.05).
     Evaluates Head, Middle, Tail at eps=0.003; Head and Tail only at eps in {0.01, 0.001}.
 
-    Results are saved to data/processed/exp_a_results.csv and returned as a DataFrame.
+    Results are saved to out_csv (default: data/processed/exp_a_results.csv) and returned as a DataFrame.
     """
+    if out_csv is None:
+        out_csv = PROCESSED_DIR / "exp_a_results.csv"
+    else:
+        out_csv = Path(out_csv)
     streams_path = PROCESSED_DIR / "streams.npz"
     if not streams_path.exists():
         raise FileNotFoundError(f"Missing {streams_path}; run data.py first.")
@@ -357,7 +361,6 @@ def run_exp_a(T: int = 5000) -> pd.DataFrame:
                 })
 
     df = pd.DataFrame(results_rows)
-    out_csv = PROCESSED_DIR / "exp_a_results.csv"
     df.to_csv(out_csv, index=False)
 
     # Print compact raw numbers table (Rule 7)
@@ -619,6 +622,147 @@ def run_exp_b(T: int = 5000) -> tuple[pd.DataFrame, pd.DataFrame]:
     return df_thresholds, df_curves
 
 
+def run_ablation(T: int = 5000, out_csv: Path | str | None = None) -> pd.DataFrame:
+    """Execute Stage 6: d=1 vs d=3 Count-Min Sketch Ablation Study.
+
+    Evaluates the real Dostoevsky corpus and synthetic Zipf (s=1.0) stream
+    across depths d in {1, 3} and eps in {0.01, 0.003, 0.001}.
+    Evaluates Head, Middle, Tail at eps=0.003; Head and Tail only at eps in {0.01, 0.001}.
+
+    For d=1: delta_theory = 1/e ≈ 0.36787944117144233
+    For d=3: delta_theory = 0.05
+
+    Results are saved to out_csv (default: data/processed/ablation_d1_results.csv) and returned as a DataFrame.
+    """
+    if out_csv is None:
+        out_csv = PROCESSED_DIR / "ablation_d1_results.csv"
+    else:
+        out_csv = Path(out_csv)
+    streams_path = PROCESSED_DIR / "streams.npz"
+    if not streams_path.exists():
+        raise FileNotFoundError(f"Missing {streams_path}; run data.py first.")
+
+    streams = np.load(streams_path)
+    real_counts = streams["real"].astype(np.int64)
+    zipf_counts = streams["zipf_1.0"].astype(np.int64)
+
+    real_vocab = get_vocabulary_words()
+
+    configs = [
+        {"dataset": "real", "counts": real_counts, "seed_base_offset": 202601},
+        {"dataset": "zipf_1.0", "counts": zipf_counts, "seed_base_offset": 202701},
+    ]
+
+    eps_sweep = [
+        {"eps": 0.01, "w": 272},
+        {"eps": 0.003, "w": 907},
+        {"eps": 0.001, "w": 2719},
+    ]
+
+    depths = [1, 3]
+
+    results_rows = []
+
+    for cfg in configs:
+        ds_name = cfg["dataset"]
+        counts = cfg["counts"]
+        N = int(counts.sum())
+        V = len(counts)
+        vocab_ids = np.arange(V, dtype=np.int64)
+
+        for d in depths:
+            delta_theory = float(1.0 / np.e) if d == 1 else 0.05
+
+            for ep_info in eps_sweep:
+                eps = ep_info["eps"]
+                w = ep_info["w"]
+
+                # Deterministic isolated seed per configuration (PLAN.md Section 4.2)
+                # seed = base + round(eps * 100000) + d
+                seed_base = cfg["seed_base_offset"] + round(eps * 100000) + d
+
+                rep_items = select_representative_items(counts, eps)
+                q_ids = np.array([item[2] for item in rep_items], dtype=np.int64)
+                q_counts = counts[q_ids]
+
+                failures_k = np.zeros(len(q_ids), dtype=np.int64)
+                sum_abs_err = np.zeros(len(q_ids), dtype=np.float64)
+                max_abs_err = np.zeros(len(q_ids), dtype=np.int64)
+
+                # Batched trial loop (chunk size <= BATCH_SIZE=250)
+                for b_start in range(0, T, BATCH_SIZE):
+                    b_end = min(b_start + BATCH_SIZE, T)
+                    for t in range(b_start, b_end):
+                        seed = seed_base + t
+                        sk = CountMinSketch(w=w, d=d, seed=seed)
+                        sk.build(vocab_ids, counts)
+                        estimates = sk.estimate(q_ids)
+
+                        err = estimates - q_counts
+                        fail = err > (eps * N)
+
+                        failures_k += fail.astype(np.int64)
+                        sum_abs_err += err.astype(np.float64)
+                        max_abs_err = np.maximum(max_abs_err, err)
+
+                fail_prob = failures_k.astype(np.float64) / float(T)
+                mean_abs_err = sum_abs_err / float(T)
+                norm_err = mean_abs_err / float(N)
+
+                for idx, (cls_name, rank, item_id) in enumerate(rep_items):
+                    true_c = int(counts[item_id])
+                    k_val = int(failures_k[idx])
+                    low_ci, high_ci = clopper_pearson_ci(k_val, T, confidence=0.95)
+
+                    if ds_name == "real":
+                        word = real_vocab[item_id]
+                    else:
+                        word = f"item_{item_id}"
+
+                    results_rows.append({
+                        "dataset": ds_name,
+                        "eps": eps,
+                        "w": w,
+                        "d": d,
+                        "delta_theory": delta_theory,
+                        "class": cls_name,
+                        "rank": rank,
+                        "item_id": item_id,
+                        "word": word,
+                        "true_count": true_c,
+                        "failures_k": k_val,
+                        "trials_T": T,
+                        "fail_prob": float(fail_prob[idx]),
+                        "ci_low": float(low_ci),
+                        "ci_high": float(high_ci),
+                        "mean_abs_error": float(mean_abs_err[idx]),
+                        "max_abs_error": int(max_abs_err[idx]),
+                        "mean_overestimation_norm_N": float(norm_err[idx]),
+                    })
+
+    df = pd.DataFrame(results_rows)
+    df.to_csv(out_csv, index=False)
+
+    # Print compact raw numbers table (Rule 7)
+    print("\n" + "=" * 105)
+    print("STAGE 6 RAW NUMBERS SUMMARY: d=1 vs d=3 ABLATION STUDY")
+    print(f"Trials per configuration: T = {T}")
+    print("=" * 105)
+    summary_cols = ["dataset", "d", "eps", "class"]
+    grouped = df.groupby(summary_cols)
+    print(f"{'Dataset':<10} {'d':<3} {'eps':<8} {'Class':<8} {'Items':<6} {'k (min/med/max)':<18} {'fail_prob (min/med/max)':<26} {'Norm Err (med)':<16}")
+    print("-" * 105)
+    for (ds, d_val, ep, cls), g in grouped:
+        k_str = f"{g['failures_k'].min()} / {int(g['failures_k'].median())} / {g['failures_k'].max()}"
+        fp_str = f"{g['fail_prob'].min():.4f} / {g['fail_prob'].median():.4f} / {g['fail_prob'].max():.4f}"
+        norm_med = f"{g['mean_overestimation_norm_N'].median():.6f}"
+        print(f"{ds:<10} {d_val:<3} {ep:<8} {cls:<8} {len(g):<6} {k_str:<18} {fp_str:<26} {norm_med:<16}")
+    print("=" * 105)
+    print(f"Saved results to: {out_csv}\n")
+
+    return df
+
+
 def main():
     parser = argparse.ArgumentParser(description="CS328 Count-Min Sketch Experiments")
     parser.add_argument("--stage", choices=["exp_a", "exp_b", "ablation"], required=True, help="Stage to execute")
@@ -630,7 +774,7 @@ def main():
     elif args.stage == "exp_b":
         run_exp_b(T=args.trials)
     elif args.stage == "ablation":
-        raise NotImplementedError("Stage 6 (ablation) is scheduled for later in Session B.")
+        run_ablation(T=args.trials)
 
 
 if __name__ == "__main__":
