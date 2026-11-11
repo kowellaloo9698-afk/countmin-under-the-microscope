@@ -71,7 +71,9 @@
 | **Completed** | Stage 1 (3/3 tests passed locally). |
 | **Completed** | Stage 2 (3/3 tests passed locally). |
 | **Completed** | Stage 3 (4/4 tests passed locally, 2026-11-12; 5th deterministic threshold test added and all assertions verified). Functions implemented: empirical_failure_probability, clopper_pearson_ci, requency_threshold_for_relative_error. Batching at BATCH_SIZE=250 per plan. Test file: 	ests/test_experiments.py. |
-| **Pending** | Session B (Stages 4-6) and Session C (Stage 7) – not yet started. |
+| **Completed** | Stage 4 (Experiment a: final T=5000 run verified locally, output saved to data/processed/exp_a_results.csv). |
+| **Completed** | Stage 5 (Experiment b: development run with T=500 completed, thresholds and curves saved to data/processed/, all 15 project tests passing). Paused for review before final T=5000 run. |
+| **Pending** | Stage 5 final T=5000 run, and Stage 6 (=1$ ablation). |
 
 ---
 
