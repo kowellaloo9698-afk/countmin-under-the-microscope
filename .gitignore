@@ -1,0 +1,12 @@
+# Raw downloaded corpus
+data/raw/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+
+# Test cache
+.pytest_cache/
