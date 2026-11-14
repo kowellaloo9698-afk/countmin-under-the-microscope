@@ -73,8 +73,29 @@
 | **Completed** | Stage 3 (4/4 tests passed locally, 2026-11-12; 5th deterministic threshold test added and all assertions verified). Functions implemented: empirical_failure_probability, clopper_pearson_ci, requency_threshold_for_relative_error. Batching at BATCH_SIZE=250 per plan. Test file: 	ests/test_experiments.py. |
 | **Completed** | Stage 4 (Experiment a: final T=5000 run verified locally, output saved to data/processed/exp_a_results.csv). |
 | **Completed** | Stage 5 (Experiment b: final T=5000 run verified locally, thresholds and curves saved to data/processed/exp_b_thresholds.csv and exp_b_curves.csv). |
-| **Completed** | Stage 6 (=1$ vs =3$ ablation: final T=5000 run verified locally, output saved to data/processed/ablation_d1_results.csv, exact consistency with Stage 4 verified, all 16 project tests passing). **Session B complete.** |
-| **Pending** | Session C: Stage 7 (Publication-quality figures fig1_failure_prob.png and fig2_rel_error_threshold.png via plots.py, and optional static demo.ipynb). |
+| **Completed** | Stage 6 ($d=1$ vs $d=3$ ablation: final T=5000 run verified locally, output saved to data/processed/ablation_d1_results.csv, exact consistency with Stage 4 verified, all 16 project tests passing). **Session B complete.** |
+| **Completed** | Session C: Stage 7 Figures (Publication-quality figures `fig1_failure_prob`, `fig2_rel_error_threshold`, and `fig3_ablation_d1_vs_d3` generated via `plots.py` in both 300 DPI PNG and SVG formats in `figures/`; visual review and CI bounds audited). |
+| **Completed** | Session C: Stage 7 Demonstration Notebook (Interactive demonstration notebook `notebooks/cms_demo.ipynb` implemented, executed, and verified; includes toy walkthrough, parameter exploration with widget fallback, frequency-class analysis, and connections to formal research). **Session C complete.** |
+| **Completed** | Final Research Report Draft (`report/report_draft.md` drafted following the college's required 4-part structure, including mathematical formulations, experimental CSV tables, verified $2.23\times$–$8.87\times$ reduction ratios, figure captions, and academic citations). |
+| **Pending** | Final Report Review & Document Formatting. |
+
+### Research Report Draft Note:
+- `report/report_draft.md` was authored following the exact four required main headings: `# 1. Problem Description`, `# 2. Solution Approach`, `# 3. Results`, and `# 4. Conclusions`, accompanied by `# Code and Data` and `# References`.
+- Grounded strictly in experimental CSV results ($T=5{,}000$ trials), verifying theoretical slack ($>80\times$), failure of tail words ($0.0\%$ passing $\le 10\%$ relative error), non-convergence at $s=0.6$, and depth ablation error reductions ($2.23\times$–$8.87\times$ across class medians, with $53.6\%$ zero-failure items at $d=3$).
+- Includes verified academic citations (Cormode & Muthukrishnan 2005, Carter & Wegman 1979, Charikar et al. 2002, Misra & Gries 1982, Metwally et al. 2005, Manku & Motwani 2002, Clopper & Pearson 1934, Zipf 1949). All 16 unit tests remain passing.
+
+### Session C Demonstration Notebook Note:
+- `notebooks/cms_demo.ipynb` was created, fully executed, audited for correctness and beginner readability, and saved with complete outputs (tables, summary metrics, and inline matplotlib plots).
+- **Toy Walkthrough Audit**: Replaced contradictory Markdown statements with exact row-by-row collision analysis matching the computed table. Correctly documents how collisions occurred in multiple rows (`data` in Row 1, `count` in Row 2, `stream` in Rows 0 & 1), but taking the minimum across $d=3$ rows successfully restored exact counts ($\hat{f} = f$, zero error) for all 8 words.
+- **Mathematical Formulations**: Clearly introduced $w = \lceil e/\varepsilon \rceil$ and $d = \lceil \ln(1/\delta) \rceil$, explicitly distinguishing the expected collision noise scale ($N/w \approx \varepsilon N / e$) from the formal theoretical threshold ($\varepsilon N$) and Markov bound ($\delta$).
+- **Frequency Classes**: Standardized 1-based ranks ($r$) and 0-based array indices ($i$): Head ($1 \le r \le 20, 0 \le i \le 19$), Middle ($200 \le r \le 500, 199 \le i \le 499$), Tail ($r > 500, i \ge 500$). Verified interpretations against exact summary tables (Head median rel error = $1.22\%$, Middle = $61.94\%$, Tail = $6{,}659.52\%$).
+- **Research Connections**: Explicitly differentiated single-trial ($T=1$) educational demonstrations from formal $T=5{,}000$ trial empirical evaluations (Figures 1, 2, and 3) without claiming universal theoretical proofs.
+- All 16 unit tests continue to pass.
+
+### Session C Visual Review & Integrity Note:
+- **Figure 1**: Inset y-axis expanded to $[-0.0001, 0.0021]$ to ensure zero confidence interval clipping (max empirical upper CI is $0.001752$). Figure legend relocated to bottom-center in 5-column layout to prevent any overlap with insets or data points.
+- **Figure 2**: The $s=0.6$ non-convergent condition is rendered categorically using an explicit vertical shaded column with a prominent "No Threshold Achieved" badge, avoiding any marker on the numerical y-axis.
+- **Figure 3**: Bottom x-axis widened ($16.0$-inch canvas) and dataset banners embedded inside panel boundaries to eliminate suptitle collision. The title incorporates the verified class-median normalized-error reduction range ($2.2\times$–$8.9\times$) and cautious empirical failure rate reporting (~3%–7% at $d=1$ vs. $\le 0.06\%$ at $d=3$). All 16 unit tests remain passing.
 
 ### Session B Cleanup Note:
 - Unit tests test_exp_a_output_schema_and_non_negative_errors and test_ablation_output_schema_and_metrics were updated to accept pytest's tmp_path fixture and write to temporary test CSV files via an optional out_csv parameter in 

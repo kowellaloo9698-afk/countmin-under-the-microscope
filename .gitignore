@@ -1,5 +1,7 @@
 # Raw downloaded corpus
 data/raw/
+data/fontlist-v390.json
+data/processed/streams.npz
 
 # Python generated files
 __pycache__/
@@ -10,3 +12,6 @@ __pycache__/
 
 # Test cache
 .pytest_cache/
+
+# Editor / Obsidian
+.obsidian/
