@@ -1,5 +1,4 @@
-# Raw downloaded corpus
-data/raw/
+# Cache & temp data
 data/fontlist-v390.json
 data/processed/streams.npz
 
